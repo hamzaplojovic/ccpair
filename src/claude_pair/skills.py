@@ -151,7 +151,7 @@ Confirm: **"Session stopped."**
 
 ## Error handling
 
-- If `ccpair` not found: `uvx tool install ccpair`
+- If `ccpair` not found: `uv tool install ccpair`
 - If state.json never appears after 10s: check `~/.claude-pair/session.log`
 - If poll times out waiting for peer: "Still waiting — share code `<CODE>`"
 """

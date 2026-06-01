@@ -14,7 +14,7 @@ Two developers. Two Claude Code instances. One shared session — with humans al
 ## Install
 
 ```sh
-uvx tool install ccpair
+uv tool install ccpair
 ccpair install               # wire up hooks, statusline, MCP, and skills
 ```
 
