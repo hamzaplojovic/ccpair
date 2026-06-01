@@ -99,20 +99,22 @@ for i in $(seq 1 20); do
 done
 ```
 
-Tell the user: **"Session code: `<CODE>` — visible in your statusline. Share it with your colleague."**
+Tell the user: **"Session code: `<CODE>` — go run `/pair join <CODE>` in your second Claude Code window. I'll wait here."**
 
-Poll for peer connection (up to 60s):
+Then poll for peer connection in a short non-blocking loop. Run this as a single bash command with a 90s timeout:
 
 ```bash
-for i in $(seq 1 60); do
+for i in $(seq 1 90); do
   active=$(jq -r '.active // false' "${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/state.json" 2>/dev/null)
   peer=$(jq -r '.peer_name // ""' "${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/state.json" 2>/dev/null)
-  [[ "$active" == "true" && -n "$peer" ]] && echo "connected: $peer" && break
+  [[ "$active" == "true" && -n "$peer" ]] && echo "connected: $peer" && exit 0
   sleep 1
 done
+echo "timeout"
 ```
 
-Once connected, say: **"Connected to `<peer_name>`. Session is live — the `ccpair` MCP tools are now available."**
+Once it prints `connected: <name>`, say: **"Connected to `<peer_name>`. The `ccpair` MCP tools are now available."**
+If it times out, say: **"Still waiting — run `/pair join <CODE>` in your second window."**
 
 ---
 
@@ -122,18 +124,19 @@ Once connected, say: **"Connected to `<peer_name>`. Session is live — the `ccp
 nohup ccpair join <CODE> --name "<YOUR_NAME>" --parent-pid $PPID >> ~/.claude-pair/session.log 2>&1 &
 ```
 
-Poll for connection (up to 60s):
+Poll for connection (up to 30s — join should be fast):
 
 ```bash
-for i in $(seq 1 60); do
+for i in $(seq 1 30); do
   active=$(jq -r '.active // false' "${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/state.json" 2>/dev/null)
   peer=$(jq -r '.peer_name // ""' "${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/state.json" 2>/dev/null)
-  [[ "$active" == "true" && -n "$peer" ]] && echo "connected: $peer" && break
+  [[ "$active" == "true" && -n "$peer" ]] && echo "connected: $peer" && exit 0
   sleep 1
 done
+echo "timeout"
 ```
 
-Once connected, say: **"Connected to `<peer_name>`. The `ccpair` MCP tools are now available."**
+Once it prints `connected: <name>`, say: **"Connected to `<peer_name>`. The `ccpair` MCP tools are now available."**
 
 ---
 
