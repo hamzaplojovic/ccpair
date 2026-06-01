@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ccpair"
+version = "0.2.0"
+description = "Peer-to-peer Claude Code sessions over local network"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    { name = "Hamza Plojovic", email = "hamza@hamzaplojovic.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+keywords = ["claude", "claude-code", "ai", "pair-programming", "p2p", "mcp"]
+dependencies = [
+    "click>=8.1",
+    "mcp>=1.0",
+    "msgpack>=1.1",
+    "zeroconf>=0.136",
+]
+
+[project.urls]
+Homepage = "https://github.com/hamzaplojovic/ccpair"
+Repository = "https://github.com/hamzaplojovic/ccpair"
+Issues = "https://github.com/hamzaplojovic/ccpair/issues"
+
+[project.scripts]
+claude-pair = "claude_pair.cli:cli"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claude_pair"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]

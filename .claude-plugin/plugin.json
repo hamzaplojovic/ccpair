@@ -1,0 +1,11 @@
+{
+  "name": "claude-pair",
+  "version": "0.2.0",
+  "description": "Peer-to-peer Claude Code collaboration over local network",
+  "author": {
+    "name": "Hamza Plojovic"
+  },
+  "license": "MIT",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}
