@@ -3,10 +3,20 @@ import os
 import socket
 import threading
 import time
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from claude_pair import discovery, transport
 from claude_pair.constants import DEFAULT_PORT, DISCOVERY_TIMEOUT, EXCHANGE_GATE_THRESHOLD, HUMAN_GATE_TIMEOUT
 from claude_pair.utils import gen_code
+
+_PAIR_DIR = Path(os.environ.get("CLAUDE_PAIR_DIR", str(Path.home() / ".claude-pair")))
+_INTERRUPT_FILE = _PAIR_DIR / "interrupted"
+_STATUS_FILE = _PAIR_DIR / "status.json"
+
+
+def _write_status(**kwargs) -> None:
+    _PAIR_DIR.mkdir(exist_ok=True)
+    _STATUS_FILE.write_text(json.dumps(kwargs))
 
 fastmcp = FastMCP("ccpair")
 
@@ -55,6 +65,7 @@ def _accept_peer(server_sock: socket.socket, name: str) -> None:
     transport.send(conn, {"name": name})
     _conn = conn
     _update(connected=True, peer_name=peer_name)
+    _write_status(status="connected", peer=peer_name, role="host")
     if _zc_handle:
         zc, info = _zc_handle
         zc.unregister_service(info)
@@ -80,6 +91,7 @@ def host_session(name: str) -> str:
     code = gen_code()
     _update(my_name=name, role="host", code=code, connected=False)
     _peer_event.clear()
+    _write_status(status="waiting", code=code)
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -118,6 +130,7 @@ def join_session(code: str, name: str) -> str:
     host_name = msg["name"] if msg else "host"
     _conn = sock
     _update(connected=True, peer_name=host_name)
+    _write_status(status="connected", peer=host_name, role="join")
     threading.Thread(target=_relay_loop, daemon=True).start()
     return f"connected: {host_name}"
 
@@ -133,6 +146,8 @@ def stop_session() -> str:
             pass
         _conn = None
     _update(connected=False, peer_name=None, role=None, code=None)
+    _INTERRUPT_FILE.unlink(missing_ok=True)
+    _STATUS_FILE.unlink(missing_ok=True)
     return "stopped"
 
 
@@ -196,9 +211,13 @@ def await_peer(timeout: int = HUMAN_GATE_TIMEOUT) -> str:
     """
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if _INTERRUPT_FILE.exists():
+            try:
+                _INTERRUPT_FILE.unlink()
+            except Exception:
+                pass
+            return "human_interjected"
         with _lock:
-            if _state.get("interrupted"):
-                return "human_interjected"
             if _state.get("peer_replied"):
                 return f"peer_replied: {_state.get('last_peer_action', 'message')}"
         time.sleep(0.5)

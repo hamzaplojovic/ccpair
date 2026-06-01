@@ -11,50 +11,15 @@ PAIR_DIR = Path(os.environ.get("CLAUDE_PAIR_DIR", str(Path.home() / ".claude-pai
 _STATUSLINE_PAIR_BLOCK = r"""
 # ccpair overlay — managed by ccpair install
 pair_str=""
-_CP_STATE="${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/state.json"
-if [[ -f "$_CP_STATE" ]]; then
-    pair_waiting=$(jq -r '.waiting // false' "$_CP_STATE" 2>/dev/null)
-    if [[ "$pair_waiting" == "true" ]]; then
-        session_code=$(jq -r '.session_code // ""' "$_CP_STATE" 2>/dev/null)
-        if [[ -n "$session_code" && "$session_code" != "null" ]]; then
-            pair_str="${sep}${yellow}⇄ ${session_code}${reset}${sep}${muted}waiting...${reset}"
-        else
-            pair_str="${sep}${muted}⇄ discovering...${reset}"
-        fi
-    fi
-    pair_active=$(jq -r '.active // false' "$_CP_STATE" 2>/dev/null)
-    if [[ "$pair_active" == "true" ]]; then
-        peer_name=$(jq -r '.peer_name // "peer"' "$_CP_STATE" 2>/dev/null)
-        phase=$(jq -r '.phase // "idle"' "$_CP_STATE" 2>/dev/null)
-        exchange=$(jq -r '.exchange_count // 0' "$_CP_STATE" 2>/dev/null)
-        deadline=$(jq -r '.human_deadline // 0' "$_CP_STATE" 2>/dev/null)
-        last_action=$(jq -r '.last_peer_action // ""' "$_CP_STATE" 2>/dev/null)
-        case "$phase" in
-            awaiting_human)  phase_color="$yellow";  phase_icon="⏳" ;;
-            human_active)    phase_color="$green";   phase_icon="✍"  ;;
-            agent_active)    phase_color="$cyan";    phase_icon="⚡"  ;;
-            awaiting_peer)   phase_color="$orange";  phase_icon="⇄"  ;;
-            *)               phase_color="$muted";   phase_icon="○"  ;;
-        esac
-        pair_str="${sep}${cyan}⇄${peer_name}${reset}${sep}${phase_color}${phase_icon}${phase}${reset}"
-        if [[ "$phase" == "awaiting_human" && "$deadline" != "0" && "$deadline" != "null" ]]; then
-            now=$(date +%s)
-            secs_left=$(( deadline - now ))
-            if (( secs_left > 0 )); then
-                cd_color="$yellow"
-                (( secs_left <= 10 )) && cd_color="$pink"
-                pair_str="${pair_str}${sep}${cd_color}${secs_left}s${reset}"
-            fi
-        fi
-        if (( exchange > 0 )); then
-            ex_color="$muted"
-            (( exchange >= 3 )) && ex_color="$orange"
-            (( exchange >= 4 )) && ex_color="$pink"
-            pair_str="${pair_str}${sep}${ex_color}ex:${exchange}${reset}"
-        fi
-        if [[ -n "$last_action" && "$last_action" != "null" && "$last_action" != "text" ]]; then
-            pair_str="${pair_str}${sep}${muted}${last_action}${reset}"
-        fi
+_CP_STATUS="${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/status.json"
+if [[ -f "$_CP_STATUS" ]]; then
+    cp_status=$(jq -r '.status // ""' "$_CP_STATUS" 2>/dev/null)
+    if [[ "$cp_status" == "waiting" ]]; then
+        cp_code=$(jq -r '.code // ""' "$_CP_STATUS" 2>/dev/null)
+        pair_str="${sep}${yellow}⇄ ${cp_code}${reset}${sep}${muted}waiting...${reset}"
+    elif [[ "$cp_status" == "connected" ]]; then
+        cp_peer=$(jq -r '.peer // "peer"' "$_CP_STATUS" 2>/dev/null)
+        pair_str="${sep}${cyan}⇄ ${cp_peer}${reset}"
     fi
 fi
 # end ccpair overlay
@@ -62,28 +27,14 @@ fi
 
 _STOP_HOOK = """\
 #!/bin/bash
-DIR="${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}"
-STATE="$DIR/state.json"
-[[ ! -f "$STATE" ]] && exit 0
-active=$(jq -r '.active // false' "$STATE" 2>/dev/null)
-[[ "$active" != "true" ]] && exit 0
-deadline=$(date -v +120S +%s 2>/dev/null || date -d '+120 seconds' +%s 2>/dev/null)
-tmp=$(mktemp "$DIR/.state.XXXXXX.tmp")
-jq --argjson dl "$deadline" \
-   '.phase = "awaiting_human" | .human_deadline = $dl | .interrupted = false | .peer_replied = false' \
-   "$STATE" > "$tmp" && mv "$tmp" "$STATE"
+# No-op: session state lives in-memory in the MCP server process
+exit 0
 """
 
 _PROMPT_HOOK = """\
 #!/bin/bash
 DIR="${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}"
-STATE="$DIR/state.json"
-[[ ! -f "$STATE" ]] && exit 0
-active=$(jq -r '.active // false' "$STATE" 2>/dev/null)
-[[ "$active" != "true" ]] && exit 0
-tmp=$(mktemp "$DIR/.state.XXXXXX.tmp")
-jq '.phase = "human_active" | .interrupted = true | .exchange_count = 0 | .human_deadline = null' \
-   "$STATE" > "$tmp" && mv "$tmp" "$STATE"
+touch "$DIR/interrupted" 2>/dev/null || true
 """
 
 

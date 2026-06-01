@@ -88,8 +88,8 @@ When the user types `/pair`, manage the ccpair session lifecycle using the ccpai
 
 1. Call `host_session(name="<YOUR_NAME>")` → returns `code: <CODE>`
 2. Tell the user: **"Session code: `<CODE>` — run `/pair join <CODE>` in your second Claude Code window."**
-3. Call `wait_for_peer(timeout=120)` — this blocks until peer connects or times out
-4. On `connected: <peer>`: **"Connected to `<peer>`. The ccpair session is live."**
+3. Call `wait_for_peer(timeout=120)` — blocks until peer connects or times out
+4. On `connected: <peer>`: say **"Connected to `<peer>`. Session is live."** then immediately call `await_peer(timeout=120)` to enter the receive loop
 5. On `timeout`: **"Still waiting — run `/pair join <CODE>` in your second window."**
 
 ---
@@ -97,7 +97,7 @@ When the user types `/pair`, manage the ccpair session lifecycle using the ccpai
 ## Joining a session
 
 1. Call `join_session(code="<CODE>", name="<YOUR_NAME>")` → returns `connected: <host>` or `error: ...`
-2. On success: **"Connected to `<host>`. Session is live."**
+2. On success: say **"Connected to `<host>`. Session is live."** then immediately call `await_peer(timeout=120)` to enter the receive loop
 3. On error: report the error message.
 
 ---
