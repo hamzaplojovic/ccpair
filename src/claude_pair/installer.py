@@ -1,8 +1,7 @@
+import hashlib
 import json
 import os
-import shutil
 import stat
-import sys
 from pathlib import Path
 
 CLAUDE_DIR = Path.home() / ".claude"
@@ -25,16 +24,14 @@ fi
 # end ccpair overlay
 """
 
-_STOP_HOOK = """\
-#!/bin/bash
-# No-op: session state lives in-memory in the MCP server process
-exit 0
-"""
-
 _PROMPT_HOOK = """\
 #!/bin/bash
-DIR="${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}"
-touch "$DIR/interrupted" 2>/dev/null || true
+ccpair interrupt 2>/dev/null || true
+"""
+
+_STOP_HOOK = """\
+#!/bin/bash
+exit 0
 """
 
 
@@ -56,9 +53,6 @@ def _patch_settings(stop: Path, prompt: Path) -> None:
     else:
         data = {}
 
-    def _hook_entry(cmd: str) -> dict:
-        return {"type": "command", "command": cmd, "timeout": 5}
-
     def _ensure_hook(event: str, cmd: str) -> None:
         hooks = data.setdefault("hooks", {})
         entries = hooks.setdefault(event, [])
@@ -66,7 +60,7 @@ def _patch_settings(stop: Path, prompt: Path) -> None:
             for h in entry.get("hooks", []):
                 if h.get("command") == cmd:
                     return
-        entries.append({"matcher": "", "hooks": [_hook_entry(cmd)]})
+        entries.append({"matcher": "", "hooks": [{"type": "command", "command": cmd, "timeout": 5}]})
 
     _ensure_hook("Stop", f"bash {stop}")
     _ensure_hook("UserPromptSubmit", f"bash {prompt}")
@@ -83,7 +77,6 @@ def _patch_statusline() -> None:
     marker = "# ccpair overlay"
     if marker in content:
         return
-    # inject before the final left= line
     insert_before = "\nleft=$("
     idx = content.rfind(insert_before)
     if idx == -1:
@@ -92,22 +85,32 @@ def _patch_statusline() -> None:
     sl.write_text(content)
 
 
-def _write_mcp(project_dir: Path) -> None:
+def _write_mcp(project_dir: Path, isolated: bool) -> Path:
     mcp = project_dir / ".mcp.json"
     if mcp.exists():
         data = json.loads(mcp.read_text())
     else:
         data = {"mcpServers": {}}
-    data.setdefault("mcpServers", {})["ccpair"] = {
+    servers = data.setdefault("mcpServers", {})
+    # Clean up old name from rename
+    servers.pop("claude-pair", None)
+
+    entry: dict = {
         "type": "stdio",
         "command": "ccpair",
         "args": ["mcp"],
     }
+    if isolated:
+        proj_hash = hashlib.sha1(str(project_dir).encode()).hexdigest()[:8]
+        isolated_dir = Path.home() / ".claude-pair" / f"proj-{proj_hash}"
+        entry["env"] = {"CLAUDE_PAIR_DIR": str(isolated_dir)}
+    servers["ccpair"] = entry
     mcp.write_text(json.dumps(data, indent=2))
+    return mcp
 
 
 def _write_skills() -> None:
-    from claude_pair.skills import PEER_SESSION_SKILL, PAIR_SKILL
+    from claude_pair.skills import PAIR_SKILL, PEER_SESSION_SKILL
     skills_dir = CLAUDE_DIR / "skills"
     for name, content in (("peer-session", PEER_SESSION_SKILL), ("pair", PAIR_SKILL)):
         d = skills_dir / name
@@ -115,7 +118,7 @@ def _write_skills() -> None:
         (d / "SKILL.md").write_text(content)
 
 
-def install(project_dir: Path) -> None:
+def install(project_dir: Path, isolated: bool = False) -> None:
     hooks_dir = PAIR_DIR / "hooks"
     stop, prompt = _write_hooks(hooks_dir)
     print(f"  ✓ hook scripts → {hooks_dir}")
@@ -124,13 +127,13 @@ def install(project_dir: Path) -> None:
     print(f"  ✓ hooks registered in {CLAUDE_DIR / 'settings.json'}")
 
     _patch_statusline()
-    print(f"  ✓ statusline patched")
+    print("  ✓ statusline patched")
 
-    _write_mcp(project_dir)
-    print(f"  ✓ .mcp.json written to {project_dir}")
+    mcp_path = _write_mcp(project_dir, isolated)
+    print(f"  ✓ .mcp.json written to {mcp_path}")
 
     _write_skills()
     print(f"  ✓ skills installed to {CLAUDE_DIR / 'skills'}")
 
     PAIR_DIR.mkdir(exist_ok=True)
-    print(f"\nDone. Restart Claude Code to pick up the changes.")
+    print("\nDone. Restart Claude Code to pick up the changes.")
