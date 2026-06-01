@@ -29,29 +29,18 @@ _PROMPT_HOOK = """\
 ccpair interrupt 2>/dev/null || true
 """
 
-_STOP_HOOK = """\
-#!/bin/bash
-exit 0
-"""
 
-
-def _write_hooks(hooks_dir: Path) -> tuple[Path, Path]:
+def _write_hooks(hooks_dir: Path) -> Path:
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    stop = hooks_dir / "pair-stop.sh"
     prompt = hooks_dir / "pair-user-prompt.sh"
-    stop.write_text(_STOP_HOOK)
     prompt.write_text(_PROMPT_HOOK)
-    for p in (stop, prompt):
-        p.chmod(p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    return stop, prompt
+    prompt.chmod(prompt.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return prompt
 
 
-def _patch_settings(stop: Path, prompt: Path) -> None:
+def _patch_settings(prompt: Path, isolated_dir: Path | None) -> None:
     settings_path = CLAUDE_DIR / "settings.json"
-    if settings_path.exists():
-        data = json.loads(settings_path.read_text())
-    else:
-        data = {}
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
 
     def _ensure_hook(event: str, cmd: str) -> None:
         hooks = data.setdefault("hooks", {})
@@ -62,8 +51,16 @@ def _patch_settings(stop: Path, prompt: Path) -> None:
                     return
         entries.append({"matcher": "", "hooks": [{"type": "command", "command": cmd, "timeout": 5}]})
 
-    _ensure_hook("Stop", f"bash {stop}")
-    _ensure_hook("UserPromptSubmit", f"bash {prompt}")
+    cmd = f"bash {prompt}"
+    if isolated_dir:
+        cmd = f"CLAUDE_PAIR_DIR={isolated_dir} bash {prompt}"
+    _ensure_hook("UserPromptSubmit", cmd)
+
+    # Clean up stale claude-pair MCP entries from earlier versions
+    mcp_servers = data.get("mcpServers", {})
+    if isinstance(mcp_servers, dict):
+        for stale in ("claude-pair", "ccpair"):
+            mcp_servers.pop(stale, None)
 
     CLAUDE_DIR.mkdir(exist_ok=True)
     settings_path.write_text(json.dumps(data, indent=2))
@@ -74,8 +71,7 @@ def _patch_statusline() -> None:
     if not sl.exists():
         return
     content = sl.read_text()
-    marker = "# ccpair overlay"
-    if marker in content:
+    if "# ccpair overlay" in content:
         return
     insert_before = "\nleft=$("
     idx = content.rfind(insert_before)
@@ -85,28 +81,21 @@ def _patch_statusline() -> None:
     sl.write_text(content)
 
 
-def _write_mcp(project_dir: Path, isolated: bool) -> Path:
-    mcp = project_dir / ".mcp.json"
-    if mcp.exists():
-        data = json.loads(mcp.read_text())
-    else:
-        data = {"mcpServers": {}}
-    servers = data.setdefault("mcpServers", {})
-    # Clean up old name from rename
-    servers.pop("claude-pair", None)
-
-    entry: dict = {
-        "type": "stdio",
-        "command": "ccpair",
-        "args": ["mcp"],
-    }
-    if isolated:
-        proj_hash = hashlib.sha1(str(project_dir).encode()).hexdigest()[:8]
-        isolated_dir = Path.home() / ".claude-pair" / f"proj-{proj_hash}"
-        entry["env"] = {"CLAUDE_PAIR_DIR": str(isolated_dir)}
-    servers["ccpair"] = entry
-    mcp.write_text(json.dumps(data, indent=2))
-    return mcp
+def _clean_legacy_mcp_in_project() -> None:
+    """Remove old .mcp.json ccpair entries from previous MCP-based versions."""
+    for mcp_path in Path.cwd().rglob(".mcp.json"):
+        try:
+            data = json.loads(mcp_path.read_text())
+            servers = data.get("mcpServers", {})
+            removed = False
+            for stale in ("ccpair", "claude-pair"):
+                if servers.pop(stale, None) is not None:
+                    removed = True
+            if removed:
+                mcp_path.write_text(json.dumps(data, indent=2))
+                print(f"  ✓ removed legacy MCP entry from {mcp_path}")
+        except Exception:
+            continue
 
 
 def _write_skills() -> None:
@@ -118,22 +107,35 @@ def _write_skills() -> None:
         (d / "SKILL.md").write_text(content)
 
 
-def install(project_dir: Path, isolated: bool = False) -> None:
-    hooks_dir = PAIR_DIR / "hooks"
-    stop, prompt = _write_hooks(hooks_dir)
-    print(f"  ✓ hook scripts → {hooks_dir}")
+def install(isolated: bool = False) -> None:
+    isolated_dir: Path | None = None
+    if isolated:
+        proj_hash = hashlib.sha1(str(Path.cwd().resolve()).encode()).hexdigest()[:8]
+        isolated_dir = Path.home() / ".claude-pair" / f"proj-{proj_hash}"
+        isolated_dir.mkdir(parents=True, exist_ok=True)
+        print(f"  ✓ isolated state dir → {isolated_dir}")
+        print(f"    (set CLAUDE_PAIR_DIR={isolated_dir} in your shell for this project)")
 
-    _patch_settings(stop, prompt)
-    print(f"  ✓ hooks registered in {CLAUDE_DIR / 'settings.json'}")
+    hooks_dir = PAIR_DIR / "hooks"
+    prompt = _write_hooks(hooks_dir)
+    print(f"  ✓ interrupt hook → {prompt}")
+
+    _patch_settings(prompt, isolated_dir)
+    print(f"  ✓ hook registered in {CLAUDE_DIR / 'settings.json'}")
 
     _patch_statusline()
-    print("  ✓ statusline patched")
-
-    mcp_path = _write_mcp(project_dir, isolated)
-    print(f"  ✓ .mcp.json written to {mcp_path}")
+    print("  ✓ statusline overlay installed")
 
     _write_skills()
-    print(f"  ✓ skills installed to {CLAUDE_DIR / 'skills'}")
+    print(f"  ✓ skills installed to {CLAUDE_DIR / 'skills'}/(pair|peer-session)")
+
+    _clean_legacy_mcp_in_project()
 
     PAIR_DIR.mkdir(exist_ok=True)
-    print("\nDone. Restart Claude Code to pick up the changes.")
+    print()
+    print("Done. Architecture:")
+    print("  - Agents call bash commands (ccpair host/join/wait/say/recv)")
+    print("  - Daemon runs in background, owns TCP port + mDNS")
+    print("  - No MCP server — works in any harness with bash")
+    print()
+    print("Restart Claude Code to load the new skills.")

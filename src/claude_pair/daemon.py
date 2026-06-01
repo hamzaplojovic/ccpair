@@ -217,6 +217,25 @@ class Daemon:
             self.inbox = None
         return {"inbox": inbox}
 
+    def _cmd_recv(self, msg: dict) -> dict:
+        """Block until peer message, interrupt, or timeout. Returns message + consumes inbox."""
+        timeout = msg.get("timeout", 60)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.interrupt_event.is_set():
+                self.interrupt_event.clear()
+                return {"interrupted": True}
+            if self.peer_replied.is_set():
+                self.peer_replied.clear()
+                with self.lock:
+                    inbox = self.inbox
+                    self.inbox = None
+                return {"message": inbox}
+            if not self.state.get("connected") and self.peer_conn is None:
+                return {"error": "session ended"}
+            time.sleep(0.2)
+        return {"timeout": True}
+
     def _cmd_interrupt(self, msg: dict) -> dict:
         self.interrupt_event.set()
         return {"ok": True}

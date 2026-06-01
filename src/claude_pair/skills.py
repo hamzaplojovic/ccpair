@@ -1,122 +1,125 @@
 PEER_SESSION_SKILL = """\
 ---
 name: peer-session
-description: Active peer programming session protocol. Use when the ccpair MCP server is available — you are one of two Claude agents in a 4-person team (2 humans + 2 agents) collaborating over a local network session.
-version: 0.3.0
+description: Active peer-programming session protocol. Use whenever `ccpair status` reports a connected session — you are one of two agents collaborating with a peer over the local network.
+version: 0.5.0
 ---
 
 # Peer Session Protocol
 
-When `ccpair` MCP tools are available, a p2p session is active.
-You are one of two Claude agents in a 4-person team: 2 humans + 2 agents.
+When `ccpair status` reports `connected`, a p2p session is live. You are one of two agents.
+You communicate with your peer through these bash commands. There is no MCP — just CLI.
 
-## Mandatory behavior
+## After every response that involved the peer
 
-**After every response that involves the peer agent:**
-1. Call `await_peer(timeout=120)` — yield control so the peer can respond or a human can interject
-2. Check the return value:
-   - `human_interjected` — stop, let the human lead
-   - `peer_replied: <action>` — immediately call `read_inbox()` to get the full message, then narrate its content
-   - `timeout` — proceed independently, note peer was unresponsive
+Run this exact command and process its output:
 
-**Periodically (every 4 agent exchanges):**
-- Call `human_gate()` — mandatory pause until a human submits a message
+```bash
+ccpair recv --wait 60
+```
+
+Exit codes:
+- **0** → stdout contains a JSON message from your peer. Parse it, act on it, respond with `ccpair say "..."`, then call `ccpair recv` again.
+- **1** → timeout. Peer didn't respond. Proceed independently or ask the human for direction.
+- **2** → human interjected (they typed in the terminal). Stop. Let the human lead.
+- **3** → session ended.
+
+## Sending to your peer
+
+```bash
+ccpair say "your message text"
+```
+
+Send concise, structured messages. Examples:
+- `ccpair say "I'll handle auth.py. You take routes.py. Reply when done."`
+- `ccpair say "Done with auth.py — pushed e3f9a12. Anything blocking on your side?"`
+- `ccpair say "Need a decision: rename ctx → context everywhere, or keep ctx? Your call."`
 
 ## Hierarchy
 
+- **Humans always preempt agents.** Exit code 2 means stop and yield.
+- **Don't exceed 4 consecutive agent exchanges** without human input. After 4, send `ccpair say "checking in — human, any direction?"` and wait.
+- **Don't poll in a tight loop.** Always do meaningful work between `ccpair recv` calls.
+
+## Status check at any time
+
+```bash
+ccpair status
 ```
-Human A  ──┐
-            ├── Human turn always takes priority
-Human B  ──┘
-
-Agent A  ──┐
-            ├── Agents coordinate via MCP tools, yield via await_peer
-Agent B  ──┘
-```
-
-- Human input always interrupts agent coordination
-- Agents must not run more than 4 consecutive exchanges without human input
-- Never call `await_peer` in a tight loop — always act meaningfully before yielding
-
-## Available tools
-
-| Tool | When to use |
-|------|-------------|
-| `propose_task` | Hand off a clearly scoped subtask to the peer |
-| `share_context` | Broadcast findings, file paths, decisions |
-| `request_review` | Ask peer to review a diff or answer a question |
-| `unblock` | Respond to a peer who is stuck |
-| `await_peer` | After sending — wait for peer reply or human interject |
-| `read_inbox` | Immediately after `await_peer` returns `peer_replied` |
-| `human_gate` | Every N exchanges — pause for mandatory human input |
-| `session_status` | Check if session is active |
-| `stop_session` | End the session |
 
 ## Proactive posture
 
-Do not wait to be prompted. After completing work:
-1. Share findings with `share_context`
-2. Propose next steps with `propose_task` or ask a question with `request_review`
-3. Then call `await_peer` to listen
-
-The agents drive momentum. The humans steer direction.
+After completing a piece of work, share it. Don't wait to be asked:
+```bash
+ccpair say "I refactored the daemon. Tests pass. Reviewing your auth change next."
+ccpair recv --wait 60
+```
 """
 
 PAIR_SKILL = """\
 ---
 name: pair
-description: Start, join, or stop a ccpair p2p session from inside Claude Code. Use when the user types /pair.
-version: 0.3.0
+description: Start, join, or stop a ccpair p2p session. Use when the user types /pair.
+version: 0.5.0
 triggers:
   - /pair
 ---
 
 # /pair — P2P Session Manager
 
-When the user types `/pair`, manage the ccpair session lifecycle using the ccpair MCP tools.
+When the user types `/pair`, run bash commands.
 
-## Step 1 — Determine intent
+## Intent
 
-- `/pair` or `/pair start` → host a new session
-- `/pair join <CODE>` → join an existing session
-- `/pair stop` → stop the session
-- `/pair status` → check session status
+- `/pair` or `/pair start` → host
+- `/pair join <CODE>` → join
+- `/pair stop` → stop session
+- `/pair status` → status
 
----
+## Host
 
-## Starting a session (host)
+```bash
+ccpair host --name "<YOUR_NAME>"
+```
 
-1. Call `host_session(name="<YOUR_NAME>")` → returns `code: <CODE>`
-2. Tell the user: **"Session code: `<CODE>` — run `/pair join <CODE>` in your second Claude Code window."**
-3. Call `wait_for_peer(timeout=120)` — blocks until peer connects or times out
-4. On `connected: <peer>`: say **"Connected to `<peer>`. Session is live."** then immediately call `await_peer(timeout=120)` to enter the receive loop
-5. On `timeout`: **"Still waiting — run `/pair join <CODE>` in your second window."**
+This prints the 6-char session code. Tell the user:
+**"Session code: `<CODE>` — run `/pair join <CODE>` in your second window."**
 
----
+Then wait for peer:
+```bash
+ccpair wait --timeout 120
+```
 
-## Joining a session
+On success it prints `connected: <peer>`. Tell the user: **"Connected to `<peer>`. Session live."**
+Then immediately enter the peer-session loop:
+```bash
+ccpair recv --wait 60
+```
+(See the peer-session skill for the full loop.)
 
-1. Call `join_session(code="<CODE>", name="<YOUR_NAME>")` → returns `connected: <host>` or `error: ...`
-2. On success: say **"Connected to `<host>`. Session is live."** then immediately call `await_peer(timeout=120)` to enter the receive loop
-3. On error: report the error message.
+## Join
 
----
+```bash
+ccpair join <CODE> --name "<YOUR_NAME>"
+```
 
-## Stopping a session
+On success it prints `connected: <host>`. Tell the user, then enter the peer-session loop with `ccpair recv --wait 60`.
 
-1. Call `stop_session()` → returns `stopped`
-2. Confirm: **"Session stopped."**
+## Stop
 
----
+```bash
+ccpair stop
+```
 
-## Status check
+## Status
 
-Call `session_status()` and report the result.
+```bash
+ccpair status
+```
 
----
+## Errors
 
-## Error handling
-
-- If ccpair tools are missing: `uv tool install ccpair`, then restart Claude Code
-- If `join_session` returns `not found`: verify the code and that both machines are on the same network
+- "command not found: ccpair" → `uv tool install ccpair`
+- "session 'XXX' not found on this network" → check the code, verify both machines on same LAN
+- "bind :52001 failed" → another ccpair daemon owns the port; run `ccpair stop` then `ccpair daemon stop`
 """
