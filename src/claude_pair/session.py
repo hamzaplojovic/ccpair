@@ -151,17 +151,28 @@ def ipc_listener(peer_sock: socket.socket, ipc_port: int) -> None:
                 transport.send(peer_sock, msg)
 
 
-def start_session(sock: socket.socket, my_name: str, peer_name: str, role: str) -> None:
+def _parent_watchdog(parent_pid: int) -> None:
+    while True:
+        try:
+            os.kill(parent_pid, 0)
+        except OSError:
+            os._exit(0)
+        time.sleep(2)
+
+
+def start_session(sock: socket.socket, my_name: str, peer_name: str, role: str, parent_pid: int | None = None) -> None:
     ipc_port = HOST_IPC_PORT if role == "host" else JOIN_IPC_PORT
     write_session(my_name, peer_name, role)
     write_state(my_name, peer_name, role)
     click.echo(f"[MCP ready — run: ccpair mcp]\n")
+    if parent_pid:
+        threading.Thread(target=_parent_watchdog, args=(parent_pid,), daemon=True).start()
     threading.Thread(target=relay_loop, args=(sock, peer_name), daemon=True).start()
     threading.Thread(target=ipc_listener, args=(sock, ipc_port), daemon=True).start()
     input_loop(sock, my_name)
 
 
-def host_session(name: str, port: int) -> None:
+def host_session(name: str, port: int, parent_pid: int | None = None) -> None:
     code = gen_code()
     write_pid()
 
@@ -188,10 +199,10 @@ def host_session(name: str, port: int) -> None:
 
     update_state(active=True, waiting=False, session_code=None, peer_name=peer_name)
     click.echo(f"[connected: {peer_name}@{addr[0]}]")
-    start_session(conn, name, peer_name, "host")
+    start_session(conn, name, peer_name, "host", parent_pid=parent_pid)
 
 
-def join_session(code: str, name: str, timeout: float) -> None:
+def join_session(code: str, name: str, timeout: float, parent_pid: int | None = None) -> None:
     write_pid()
     write_state(name, "", "join", waiting=True)
     click.echo(f"Looking for session {click.style(code, fg='yellow')}...")
@@ -212,4 +223,4 @@ def join_session(code: str, name: str, timeout: float) -> None:
 
     update_state(active=True, waiting=False, peer_name=host_name)
     click.echo(f"[connected: {host_name}@{ip}]")
-    start_session(sock, name, host_name, "join")
+    start_session(sock, name, host_name, "join", parent_pid=parent_pid)

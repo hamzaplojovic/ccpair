@@ -12,16 +12,18 @@ def cli(): pass
 @cli.command()
 @click.option("--port", default=DEFAULT_PORT, show_default=True)
 @click.option("--name", default="host", show_default=True)
-def host(port: int, name: str) -> None:
-    host_session(name, port)
+@click.option("--parent-pid", default=None, type=int, hidden=True)
+def host(port: int, name: str, parent_pid: int | None) -> None:
+    host_session(name, port, parent_pid=parent_pid)
 
 
 @cli.command()
 @click.argument("code")
 @click.option("--name", default="guest", show_default=True)
 @click.option("--timeout", default=DISCOVERY_TIMEOUT, show_default=True)
-def join(code: str, name: str, timeout: float) -> None:
-    join_session(code, name, timeout)
+@click.option("--parent-pid", default=None, type=int, hidden=True)
+def join(code: str, name: str, timeout: float, parent_pid: int | None) -> None:
+    join_session(code, name, timeout, parent_pid=parent_pid)
 
 
 @cli.command()

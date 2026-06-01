@@ -86,7 +86,7 @@ Ask the user (or infer from args):
 ## Starting a session (host)
 
 ```bash
-nohup ccpair host --name "<YOUR_NAME>" >> ~/.claude-pair/session.log 2>&1 &
+nohup ccpair host --name "<YOUR_NAME>" --parent-pid $PPID >> ~/.claude-pair/session.log 2>&1 &
 ```
 
 Poll for the session code (up to 10s):
@@ -119,7 +119,7 @@ Once connected, say: **"Connected to `<peer_name>`. Session is live — the `ccp
 ## Joining a session
 
 ```bash
-nohup ccpair join <CODE> --name "<YOUR_NAME>" >> ~/.claude-pair/session.log 2>&1 &
+nohup ccpair join <CODE> --name "<YOUR_NAME>" --parent-pid $PPID >> ~/.claude-pair/session.log 2>&1 &
 ```
 
 Poll for connection (up to 60s):
