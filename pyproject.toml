@@ -35,7 +35,7 @@ Repository = "https://github.com/hamzaplojovic/ccpair"
 Issues = "https://github.com/hamzaplojovic/ccpair/issues"
 
 [project.scripts]
-claude-pair = "claude_pair.cli:cli"
+ccpair = "claude_pair.cli:cli"
 
 [tool.hatch.build.targets.sdist]
 include = ["/src"]

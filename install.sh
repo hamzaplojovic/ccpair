@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PLUGIN_NAME="claude-pair"
+PLUGIN_NAME="ccpair"
 VERSION="0.2.0"
 PLUGIN_DIR="$HOME/.claude/plugins/local/${PLUGIN_NAME}/${VERSION}"
 INSTALLED_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
@@ -49,15 +49,15 @@ open(path, "w").write(json.dumps(data, indent=2))
 print("  ✓ wrote ~/.claude-pair/config.json")
 PYEOF
 
-# install claude-pair wrapper to ~/.local/bin so skills can call it directly
+# install ccpair wrapper to ~/.local/bin so skills can call it directly
 mkdir -p "$HOME/.local/bin"
-cat > "$HOME/.local/bin/claude-pair" <<WRAPPER
+cat > "$HOME/.local/bin/ccpair" <<WRAPPER
 #!/bin/bash
-exec uv --directory "$REPO_DIR" run claude-pair "\$@"
+exec uv --directory "$REPO_DIR" run ccpair "\$@"
 WRAPPER
-chmod +x "$HOME/.local/bin/claude-pair"
-echo "  ✓ installed ~/.local/bin/claude-pair"
+chmod +x "$HOME/.local/bin/ccpair"
+echo "  ✓ installed ~/.local/bin/ccpair"
 
 echo ""
 echo "Done. Restart Claude Code, then enable the plugin:"
-echo "  /plugin enable claude-pair"
+echo "  ccpair install"

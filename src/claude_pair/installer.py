@@ -9,7 +9,7 @@ CLAUDE_DIR = Path.home() / ".claude"
 PAIR_DIR = Path(os.environ.get("CLAUDE_PAIR_DIR", str(Path.home() / ".claude-pair")))
 
 _STATUSLINE_PAIR_BLOCK = r"""
-# claude-pair overlay — managed by claude-pair install
+# ccpair overlay — managed by ccpair install
 pair_str=""
 _CP_STATE="${CLAUDE_PAIR_DIR:-$HOME/.claude-pair}/state.json"
 if [[ -f "$_CP_STATE" ]]; then
@@ -57,7 +57,7 @@ if [[ -f "$_CP_STATE" ]]; then
         fi
     fi
 fi
-# end claude-pair overlay
+# end ccpair overlay
 """
 
 _STOP_HOOK = """\
@@ -129,7 +129,7 @@ def _patch_statusline() -> None:
     if not sl.exists():
         return
     content = sl.read_text()
-    marker = "# claude-pair overlay"
+    marker = "# ccpair overlay"
     if marker in content:
         return
     # inject before the final left= line
@@ -147,9 +147,9 @@ def _write_mcp(project_dir: Path) -> None:
         data = json.loads(mcp.read_text())
     else:
         data = {"mcpServers": {}}
-    data.setdefault("mcpServers", {})["claude-pair"] = {
+    data.setdefault("mcpServers", {})["ccpair"] = {
         "type": "stdio",
-        "command": "claude-pair",
+        "command": "ccpair",
         "args": ["mcp"],
     }
     mcp.write_text(json.dumps(data, indent=2))

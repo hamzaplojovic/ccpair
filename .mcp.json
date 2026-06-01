@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "claude-pair": {
+    "ccpair": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["--directory", "${CLAUDE_PLUGIN_ROOT}", "run", "claude-pair", "mcp"]
+      "command": "ccpair",
+      "args": ["mcp"]
     }
   }
 }

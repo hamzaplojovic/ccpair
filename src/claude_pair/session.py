@@ -155,7 +155,7 @@ def start_session(sock: socket.socket, my_name: str, peer_name: str, role: str) 
     ipc_port = HOST_IPC_PORT if role == "host" else JOIN_IPC_PORT
     write_session(my_name, peer_name, role)
     write_state(my_name, peer_name, role)
-    click.echo(f"[MCP ready — run: claude-pair mcp]\n")
+    click.echo(f"[MCP ready — run: ccpair mcp]\n")
     threading.Thread(target=relay_loop, args=(sock, peer_name), daemon=True).start()
     threading.Thread(target=ipc_listener, args=(sock, ipc_port), daemon=True).start()
     input_loop(sock, my_name)

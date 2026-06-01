@@ -33,6 +33,6 @@ def mcp() -> None:
 @click.option("--project-dir", default=".", show_default=True,
               help="Project directory to write .mcp.json into.")
 def install(project_dir: str) -> None:
-    """Wire claude-pair into Claude Code (hooks, statusline, MCP, skills)."""
+    """Wire ccpair into Claude Code (hooks, statusline, MCP, skills)."""
     from claude_pair.installer import install as do_install
     do_install(Path(project_dir).resolve())

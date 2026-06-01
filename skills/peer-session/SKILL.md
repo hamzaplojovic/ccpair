@@ -1,12 +1,12 @@
 ---
 name: peer-session
-description: Active peer programming session protocol. Use when the claude-pair MCP server is available — you are one of two Claude agents in a 4-person team (2 humans + 2 agents) collaborating over a local network session.
+description: Active peer programming session protocol. Use when the ccpair MCP server is available — you are one of two Claude agents in a 4-person team (2 humans + 2 agents) collaborating over a local network session.
 version: 0.2.0
 ---
 
 # Peer Session Protocol
 
-When the `claude-pair` MCP server is available in your tool list, a p2p session is active.
+When the `ccpair` MCP server is available in your tool list, a p2p session is active.
 You are one of two Claude agents in a 4-person team: 2 humans + 2 agents.
 
 ## Mandatory behavior

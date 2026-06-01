@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from claude_pair import transport
 from claude_pair.constants import EXCHANGE_GATE_THRESHOLD, HUMAN_GATE_TIMEOUT, SESSION_FILE, STATE_FILE
 
-fastmcp = FastMCP("claude-pair")
+fastmcp = FastMCP("ccpair")
 ipc_sock: socket.socket | None = None
 
 

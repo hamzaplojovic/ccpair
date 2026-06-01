@@ -1,5 +1,5 @@
 {
-  "name": "claude-pair",
+  "name": "ccpair",
   "version": "0.2.0",
   "description": "Peer-to-peer Claude Code collaboration over local network",
   "author": {

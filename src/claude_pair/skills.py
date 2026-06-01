@@ -1,13 +1,13 @@
 PEER_SESSION_SKILL = """\
 ---
 name: peer-session
-description: Active peer programming session protocol. Use when the claude-pair MCP server is available — you are one of two Claude agents in a 4-person team (2 humans + 2 agents) collaborating over a local network session.
+description: Active peer programming session protocol. Use when the ccpair MCP server is available — you are one of two Claude agents in a 4-person team (2 humans + 2 agents) collaborating over a local network session.
 version: 0.2.0
 ---
 
 # Peer Session Protocol
 
-When the `claude-pair` MCP server is available in your tool list, a p2p session is active.
+When the `ccpair` MCP server is available in your tool list, a p2p session is active.
 You are one of two Claude agents in a 4-person team: 2 humans + 2 agents.
 
 ## Mandatory behavior
@@ -64,7 +64,7 @@ The agents drive momentum. The humans steer direction.
 PAIR_SKILL = """\
 ---
 name: pair
-description: Start, join, or stop a claude-pair p2p session from inside Claude Code. Use when the user types /pair.
+description: Start, join, or stop a ccpair p2p session from inside Claude Code. Use when the user types /pair.
 version: 0.2.0
 triggers:
   - /pair
@@ -72,7 +72,7 @@ triggers:
 
 # /pair — P2P Session Manager
 
-When the user types `/pair`, manage the claude-pair session lifecycle using the Bash tool.
+When the user types `/pair`, manage the ccpair session lifecycle using the Bash tool.
 
 ## Step 1 — Determine intent
 
@@ -86,7 +86,7 @@ Ask the user (or infer from args):
 ## Starting a session (host)
 
 ```bash
-nohup claude-pair host --name "<YOUR_NAME>" >> ~/.claude-pair/session.log 2>&1 &
+nohup ccpair host --name "<YOUR_NAME>" >> ~/.claude-pair/session.log 2>&1 &
 ```
 
 Poll for the session code (up to 10s):
@@ -112,14 +112,14 @@ for i in $(seq 1 60); do
 done
 ```
 
-Once connected, say: **"Connected to `<peer_name>`. Session is live — the `claude-pair` MCP tools are now available."**
+Once connected, say: **"Connected to `<peer_name>`. Session is live — the `ccpair` MCP tools are now available."**
 
 ---
 
 ## Joining a session
 
 ```bash
-nohup claude-pair join <CODE> --name "<YOUR_NAME>" >> ~/.claude-pair/session.log 2>&1 &
+nohup ccpair join <CODE> --name "<YOUR_NAME>" >> ~/.claude-pair/session.log 2>&1 &
 ```
 
 Poll for connection (up to 60s):
@@ -133,7 +133,7 @@ for i in $(seq 1 60); do
 done
 ```
 
-Once connected, say: **"Connected to `<peer_name>`. The `claude-pair` MCP tools are now available."**
+Once connected, say: **"Connected to `<peer_name>`. The `ccpair` MCP tools are now available."**
 
 ---
 
@@ -151,7 +151,7 @@ Confirm: **"Session stopped."**
 
 ## Error handling
 
-- If `claude-pair` not found: `uvx tool install ccpair`
+- If `ccpair` not found: `uvx tool install ccpair`
 - If state.json never appears after 10s: check `~/.claude-pair/session.log`
 - If poll times out waiting for peer: "Still waiting — share code `<CODE>`"
 """

@@ -15,7 +15,7 @@ Two developers. Two Claude Code instances. One shared session — with humans al
 
 ```sh
 uvx tool install ccpair
-claude-pair install          # wire up hooks, statusline, MCP, and skills
+ccpair install               # wire up hooks, statusline, MCP, and skills
 ```
 
 Restart Claude Code, then in any project:
@@ -28,13 +28,13 @@ Restart Claude Code, then in any project:
 
 **Start a session (host):**
 ```sh
-claude-pair host --name alice
+ccpair host --name alice
 # prints: Session code: ab3x9k
 ```
 
 **Join a session:**
 ```sh
-claude-pair join ab3x9k --name bob
+ccpair join ab3x9k --name bob
 ```
 
 Or use `/pair` inside Claude Code — it handles both flows interactively.
